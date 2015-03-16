@@ -1,7 +1,7 @@
 #ifndef _MAIN_WINAPP_H
 #define _MAIN_WINAPP_H
 
-#define SURV
+//#define SURV
 
 #include "SDK10000.h"
 #include "layer.h"
@@ -21,7 +21,6 @@
 #include <FL/Fl_Gl_Window.H>
 #include <FL/glut.H>
 #include <iostream>
-#include <GL/glew.h>
 #include <vector>
 #include <mutex>
 #include <sstream>

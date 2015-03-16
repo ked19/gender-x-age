@@ -67,22 +67,24 @@ void MyFace::Detect(std::vector<rectangle> &aRect,
 */
 void MyFace::Detect(std::vector<rectangle> &aRect, 
 					unsigned char *pBuf, unsigned bufW, unsigned bufH, unsigned bufC, 
-					unsigned imgW, unsigned imgH, bool bDouble)
+					unsigned imgW, unsigned imgH, bool bRGB, bool bDouble)
 {
 	MyAssert(imgW <= BUF_LEN &&
 			 imgH <= BUF_LEN);
 
-	unsigned scl = 2;
+	//unsigned scl = 2;
+	unsigned scl = 1;
 	m_arrGray.set_size(imgH / scl, imgW / scl);
 
 	if (bufC == 1) {
-		unsigned loc = 0;
+		unsigned yLoc = 0;
 		for (unsigned y = 0; y < imgH / scl; y++) {
+			unsigned xLoc = yLoc;
 			for (unsigned x = 0; x < imgW / scl; x++) {
-				m_arrGray[y][x] = pBuf[loc];
-				loc += scl;
+				m_arrGray[y][x] = pBuf[xLoc];
+				xLoc += scl;
 			}
-			loc += bufW;
+			yLoc += bufW * scl;
 		}
 	} else if (bufC == 3) {
 		unsigned yLen = bufW * bufC;
@@ -90,9 +92,15 @@ void MyFace::Detect(std::vector<rectangle> &aRect,
 		for (unsigned y = 0; y < imgH / scl; y++) {
 			unsigned xLoc = yLoc;
 			for (unsigned x = 0; x < imgW / scl; x++) {
-				m_arrGray[y][x] = (unsigned char)(pBuf[xLoc + 0] * 0.30F
-												+ pBuf[xLoc + 1] * 0.59F
-												+ pBuf[xLoc + 2] * 0.11F);
+				if (bRGB) {
+					m_arrGray[y][x] = (unsigned char)(pBuf[xLoc + 0] * 0.30F
+													+ pBuf[xLoc + 1] * 0.59F
+													+ pBuf[xLoc + 2] * 0.11F);
+				} else {
+					m_arrGray[y][x] = (unsigned char)(pBuf[xLoc + 2] * 0.30F
+													+ pBuf[xLoc + 1] * 0.59F
+													+ pBuf[xLoc + 0] * 0.11F);
+				}
 				xLoc += bufC * scl;
 			}
 			yLoc += yLen * scl;
@@ -101,25 +109,41 @@ void MyFace::Detect(std::vector<rectangle> &aRect,
 		MyAssert(0);
 	}
 
-	if (scl == 1) {}
-	else if (scl == 2) {
+	unsigned newW = imgW;
+	for (unsigned i = 0; i < 4; i++) {
+		if (newW > 90) {
+			break;
+		} else {}
 		pyramid_up(m_arrGray);
-	} else {
-		MyAssert(0);
+		newW *= 2;
+		scl *= 2;
 	}
-	
+		
 	aRect = m_fd(m_arrGray);
+
+	for (unsigned r = 0; r < aRect.size(); r++) {
+		aRect[r].left() /= scl;
+		aRect[r].right() /= scl;
+		aRect[r].bottom() /= scl;
+		aRect[r].top() /= scl;
+	}
 }
 
-void BeSkin(Mtx &mtxSkin, unsigned char *pRgb, unsigned w, unsigned h, unsigned scl)
+void BeSkin(Mtx &mtxSkin, unsigned char *pRgb, unsigned w, unsigned h, unsigned scl, bool bRGB)
 {
 	unsigned loc = 0;
 	for (unsigned y = 0; y < h / scl; y++) {
 		for (unsigned x = 0; x < w / scl; x++) {
-			unsigned char aV[] = {
-				pRgb[loc + 0],
-				pRgb[loc + 1],
-				pRgb[loc + 2]};
+			unsigned char aV[3];  
+			if (bRGB) {
+				aV[0] = pRgb[loc + 0];
+				aV[1] = pRgb[loc + 1];
+				aV[2] = pRgb[loc + 2];
+			} else {
+				aV[2] = pRgb[loc + 0];
+				aV[1] = pRgb[loc + 1];
+				aV[0] = pRgb[loc + 2];
+			}
 			loc += 3 * scl;
 
 			unsigned char vMin = (aV[0] < aV[1]) ? aV[0] : aV[1];
@@ -143,11 +167,6 @@ void BeSkin(Mtx &mtxSkin, unsigned char *pRgb, unsigned w, unsigned h, unsigned 
 		} 
 		loc += 3 * (scl - 1) * w;
 	}
-}
-
-unsigned GetPosPow(unsigned scl)
-{
-	//unsigned v = 2
 }
 
 void MyFace::DetectLocal(std::vector<rectangle> &aRect, 
@@ -246,13 +265,18 @@ void MyFace::Detect(std::vector<rectangle> &aRect,
 					unsigned char *pGray, unsigned char *pRgb, 
 					Mtx &mtxSkin, Mtx &mtxLab, unsigned scl,
 					unsigned imgW, unsigned imgH, 
-					bool bDouble)
+					bool bRGB, bool bDouble)
 {
-	Vect2D<unsigned> dimSkin = mtxSkin.GetDim();
-	MyAssert(dimSkin.m_x * scl == imgW &&
-			 dimSkin.m_y * scl == imgH);
+	//MyAssert(bRGB);
 
-	BeSkin(mtxSkin, pRgb, imgW, imgH, scl);
+	Vect2D<unsigned> dimSkin = mtxSkin.GetDim();
+//cout << dimSkin.m_x << " " << dimSkin.m_y << " " << scl << " " << imgW << " " << imgH << endl;
+	//MyAssert(dimSkin.m_x * scl == imgW &&
+	//		 dimSkin.m_y * scl == imgH);
+	MyAssert(dimSkin.m_x == imgW / scl &&
+			 dimSkin.m_y == imgH / scl);
+
+	BeSkin(mtxSkin, pRgb, imgW, imgH, scl, bRGB);
 
 	static std::vector<unsigned> aIdx;
 	mtxOp.regionLabel.Gen(mtxLab, mtxSkin, aIdx);

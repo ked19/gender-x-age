@@ -8,7 +8,7 @@ void EqualHis(unsigned char *pIn, unsigned char *pMsk)
 	for (unsigned y = 0; y < 100; y++) {
 		for (unsigned x = 0; x < 100; x++) {
 			mIn.CellRef(x, y) = pIn[loc];
-			mMsk.CellRef(x, y) = pMsk[loc];
+			mMsk.CellRef(x, y) = pMsk[loc];		
 			loc++;
 		}
 	}
@@ -116,7 +116,7 @@ void main()
 	return;
 	*/
 
-	bool bDebug = true;
+	bool bDebug = false;
 	//FaceFeature ff;
 	HeadPose hp;
 	for (unsigned n = 0; n < NORM_NUM; n++) {
@@ -134,9 +134,12 @@ void main()
 	std::vector<FaceNode *> aFIn;
 	aFIn.clear();
 	for (unsigned f = 0; f < FCACHE_NUM; f++) {
-		FaceNode *pFn = new FaceNode(100, 100);
+		FaceNode *pFn = new FaceNode(100, 100, pMsk);
 		aFIn.push_back(pFn);
 	}
+
+	FFeaLoc ffLoc;
+	Smile fs;
 
 	GenderAge ga;
 
@@ -173,6 +176,7 @@ void main()
 
 	pTarget_win->show();
 
+	/*
 	//*******************************************
 	// heatmap
 	//*******************************************
@@ -180,6 +184,7 @@ void main()
 	Mtx mtxHpF(1280, 720);
 	mtxOp.zero.Gen(mtxHpM);
 	mtxOp.zero.Gen(mtxHpF);
+	*/
 
 	//*******************************************
 	// looping
@@ -228,6 +233,8 @@ void main()
 
 			count = 0;
 		} else {}
+//pTarget_win->redraw();
+//continue;
 
 		std::vector<rectangle> fRect; // = DetectFace(false); //true);	
 		//myf.Detect(fRect, pArrGray, txW, txH, 1, txW, txH, true);
@@ -238,39 +245,6 @@ void main()
 		static Mtx mtxLab (txW / SK_SCL, txH / SK_SCL);
 		myf.Detect(fRect, pArrGray, pArrRgb, mtxSkin, mtxLab, SK_SCL, txW, txH);
 		
-
-		/*
-		arrFace.clear();
-		for (unsigned f = 0; f < fRect.size(); f++) {
-			//fRect[f].bottom() = txH - 1 - fRect[f].bottom();
-			//fRect[f].top() = txH - 1 - fRect[f].top();
-
-			if (bDebug) {
-				FF vTmp; 
-				vTmp.m_0 = (DATA)fRect[f].left();
-				vTmp.m_1 = (DATA)(txH - 1 - fRect[f].bottom()); 
-				vTmp.m_2 = (DATA)fRect[f].right();; 
-				vTmp.m_3 = (DATA)(txH - 1 - fRect[f].top()); 
-				arrFace.push_back(vTmp);
-			} else {}
-		}
-		//continue;
-		*/
-
-		/*
-		arrFFea.clear();
-		for (unsigned f = 0; f < fRect.size(); f++) {
-			FFeaLoc feaLoc;
-			ff.Detect(feaLoc, pArrRgb, txW, txH, 3, fRect[f].left(), fRect[f].right(), fRect[f].bottom(), fRect[f].top());
-
-			Fea ffTmp;
-			for (unsigned fea = 0; fea < FFeaLoc::FEA_NUM; fea++) {
-				ffTmp.m_x[fea] = feaLoc.m_x[fea];
-				ffTmp.m_y[fea] = txH - 1 - feaLoc.m_y[fea];
-			}
-			arrFFea.push_back(ffTmp);
-		}
-		*/
 		static bool bMsk = false;
 		if (!bMsk) {
 			hp.GetMask(pMsk);
@@ -280,10 +254,54 @@ void main()
 		} else {}
 		unsigned fNum = (fRect.size() < NORM_NUM) ? fRect.size() : NORM_NUM;
 		for (unsigned f = 0; f < fNum; f++) {
+			if (fRect[f].left() < 0) {
+				fRect[f].left() = 0;
+			} else {}
+			if (fRect[f].top() < 0) {
+				fRect[f].top() = 0;
+			} else {}
+
 			hp.Normalize(apNorm[f], normC, pArrRgb, txW, txH, 3, fRect[f].left(), fRect[f].right(), fRect[f].bottom(), fRect[f].top(), false); //true);
 			//hp.Normalize(apNorm[f], pArrGray, txW, txH, 1, fRect[f].left(), fRect[f].right(), fRect[f].bottom(), fRect[f].top(), false); //true);
 			EqualHis(apNorm[f], pMsk);
 			//mtxOp.hisEqual.Gen(apNorm[f], 10000, pMsk);
+
+
+			hp.GetFFLoc(ffLoc);
+			//***********************************
+			// smile detection
+			//***********************************
+			/*
+			unsigned mouthXL = ffLoc.m_x[48];		unsigned mouthYL = ffLoc.m_y[48];
+			unsigned mouthXR = ffLoc.m_x[54];		unsigned mouthYR = ffLoc.m_y[54];
+			DATA mXDiff = (DATA)mouthXL - mouthXR;
+			DATA mYDiff = (DATA)mouthYL - mouthYR;
+			DATA mouthDiff = //fabs(mXDiff); 
+							 sqrt(mXDiff * mXDiff + mYDiff * mYDiff);
+
+			unsigned eyeXL = ffLoc.m_x[36];			unsigned eyeYL = ffLoc.m_y[36];
+			unsigned eyeXR = ffLoc.m_x[45];			unsigned eyeYR = ffLoc.m_y[45];
+			DATA eXDiff = (DATA)eyeXL - eyeXR;
+			DATA eYDiff = (DATA)eyeYL - eyeYR;
+			DATA eyeDiff = //fabs(eXDiff); 
+						   sqrt(eXDiff * eXDiff + eYDiff * eYDiff);
+
+			if (bDebug) {
+				cout << "**" << mouthDiff << " " << eyeDiff << " " << mouthDiff / eyeDiff << endl;
+			} else {}
+			bool bS = ((mouthDiff / eyeDiff) > 0.65F) //0.68F) 
+				? true : false;
+			//aBSmile.push_back(bS);
+			//aBSmile[f] = bS;
+			*/
+
+			bool bS;
+			int sErr = fs.Detect(bS, ffLoc);
+
+			aFIn[f]->m_bSmile = bS; //aBSmile[f];
+			if (bDebug) {
+				cout << "**" << bS << endl;
+			} else {}
 		}
 		
 		MyAssert(fRect.size() <= FCACHE_NUM);
@@ -292,7 +310,7 @@ void main()
 			//unsigned aB, aE;
 			//ga.Detect(bM, aB, aE, apNorm[f], 100, 100, 1, false);
 
-			aFIn[f]->CopyFrom(apNorm[f], 100, 100, normC);
+			aFIn[f]->CopyFrom(apNorm[f], 100, 100, normC, pMsk);
 			//aFIn[f]->m_bMale = bM;
 			//aFIn[f]->m_ageB = aB;
 			//aFIn[f]->m_ageE = aE;
@@ -300,9 +318,10 @@ void main()
 			aFIn[f]->m_recR = fRect[f].right();
 			aFIn[f]->m_recB = fRect[f].bottom();
 			aFIn[f]->m_recT = fRect[f].top();
+			//aFIn[f]->m_bSmile = true; //aBSmile[f];
 		}
 	
-		fcount.bDebug = true;
+		fcount.bDebug = bDebug;
 		fcount.NextFrame();
 		//aFId.clear();
 		for (unsigned f = 0; f < fRect.size(); f++) {
@@ -329,23 +348,29 @@ void main()
 			} else {}
 			//pFn->m_bMale = bM;
 
+			//cout << pFn->m_bSmile << endl;
+			/*
 			//***********************************
-			// heatmap
+			// smile detection
 			//***********************************
-			//cout << "aaaaaaaaaa: " << pFn->m_recB << " " << pFn->m_recT << endl;
-			if (pFn->m_bMale) {
-				for (unsigned y = pFn->m_recT; y <= pFn->m_recB; y++) {
-					for (unsigned x = pFn->m_recL; x <= pFn->m_recR; x++) {
-						mtxHpM.CellRef(x, y) += 1.F;
-					}
-				}
-			} else {
-				for (unsigned y = pFn->m_recT; y <= pFn->m_recB; y++) {
-					for (unsigned x = pFn->m_recL; x <= pFn->m_recR; x++) {
-						mtxHpF.CellRef(x, y) += 1.F;
-					}
-				}
-			}
+			unsigned mouthXL = ffLoc.m_x[48];		unsigned mouthYL = ffLoc.m_y[48];
+			unsigned mouthXR = ffLoc.m_x[54];		unsigned mouthYR = ffLoc.m_y[54];
+			DATA mXDiff = (DATA)mouthXL - mouthXR;
+			DATA mYDiff = (DATA)mouthYL - mouthYR;
+			DATA mouthDiff = //fabs(mXDiff); 
+							 sqrt(mXDiff * mXDiff + mYDiff * mYDiff);
+
+			unsigned eyeXL = ffLoc.m_x[36];			unsigned eyeYL = ffLoc.m_y[36];
+			unsigned eyeXR = ffLoc.m_x[45];			unsigned eyeYR = ffLoc.m_y[45];
+			DATA eXDiff = (DATA)eyeXL - eyeXR;
+			DATA eYDiff = (DATA)eyeYL - eyeYR;
+			DATA eyeDiff = //fabs(eXDiff); 
+						   sqrt(eXDiff * eXDiff + eYDiff * eYDiff);
+
+			cout << mouthDiff << " " << eyeDiff << " " << mouthDiff / eyeDiff << endl;
+			bool bS = ((mouthDiff / eyeDiff) > 0.65F) //0.68F) 
+				? true : false;
+			*/
 
 			pFn = fcount.GetNextFace();
 		}
@@ -359,6 +384,7 @@ void main()
 #else
 #endif
 
+		/*
 		DATA vMax, vMin;
 		mtxOp.rng.Gen(vMin, vMax, mtxHpM);
 		if (vMax < 1.F) {
@@ -375,6 +401,7 @@ void main()
 		mtxOp.mul.Gen(mtxHpF, 255.F / vMax);
 		imgIO.Write("hpF.jpg", MyImg(mtxHpF));
 		mtxOp.mul.Gen(mtxHpF, vMax / 255.F);
+		*/
 	}
 
 	//Fl::run();

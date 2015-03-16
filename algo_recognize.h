@@ -1,16 +1,20 @@
 #ifndef _ALGO_RECOGNIZE_H
 #define _ALGO_RECOGNIZE_H
 
+//#define GA
+
+#include <dlib/image_processing/frontal_face_detector.h>
+
 #include "denseMatrix.h"
 #include "layer.h"
 #include "define.h"
 #include "TRIModel.h"
-#include "shader.h"
 #include "matrixOperation.h"
 
+#define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include <dlib/image_processing/frontal_face_detector.h>
+//#include <dlib/image_processing/frontal_face_detector.h>
 #ifdef GA
 #include <svm.h>
 #endif
@@ -36,11 +40,11 @@ public:
 class FaceFeature
 {
 public:
-	FaceFeature();
+	FaceFeature(string dir = "");
 	~FaceFeature();
 
 	int Detect(FFeaLoc &fFea, unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
-				unsigned fL, unsigned fR, unsigned fB, unsigned fT);
+				unsigned fL, unsigned fR, unsigned fB, unsigned fT, bool bRGB = true);
 
 private:
 	shape_predictor m_predictor;
@@ -56,15 +60,22 @@ private:
 class HeadPose
 {
 public:
-	HeadPose();
+	HeadPose(string dir = "");
 	~HeadPose();
 
 	void GetMemory(unsigned char **ppMemory, unsigned outC, unsigned &mW, unsigned &mH, unsigned &mC);
 	void GetMask(unsigned char *pMsk);
 	int Normalize(unsigned char *pOut, unsigned outC,
 				  unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
-				  unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, bool bDebug = false);
+				  unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, 
+				  bool bRGB = true, bool bDebug = false);
+	int GetFFLoc(FFeaLoc &ffLoc);
 	bool IsLock();
+
+	int GetTrans(Mtx &mtxX, 
+				 unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
+				 unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, 
+				 bool bRGB = true, bool bDebug = false);
 
 private:
 	void Render();
@@ -87,6 +98,9 @@ private:
 
 	bool m_bLock;
 
+	bool m_bInitTx;
+	GLuint m_txName;
+
 	static const Vect2D<unsigned> DIM_FBO; //(400, 400);
 	static const Vect3D<unsigned> DIM_FACE;
 	static const Vect4D<float> BG_COLOR;
@@ -100,6 +114,20 @@ private:
 
 	static const unsigned m_aIdxMod[];
 	static const unsigned m_aIdxImg[];
+};
+
+//***********************************************
+
+class Smile
+{
+public:
+	Smile();
+	~Smile();
+
+	int Detect(bool &bS, FFeaLoc &ffLoc);
+
+private:
+
 };
 
 //*************************************************************************************************

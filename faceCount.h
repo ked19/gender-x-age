@@ -11,14 +11,14 @@ using namespace std;
 class FaceNode
 {
 public:
-	FaceNode(unsigned iW, unsigned iH);
+	FaceNode(unsigned iW, unsigned iH, unsigned char *pMsk);
 	FaceNode(FaceNode &fnIn);
 	~FaceNode();
 
-	void CopyFrom(unsigned char *pIn, unsigned iW, unsigned iH, unsigned iC);
+	void CopyFrom(unsigned char *pIn, unsigned iW, unsigned iH, unsigned iC, unsigned char *pMsk);
 
 	DATA Correlate(FaceNode &fnIn);
-	void Update(FaceNode &fnIn);
+	void Update(FaceNode &fnIn, bool bNew);
 
 	unsigned char GetAvg();
 	DATA GetSD();
@@ -34,12 +34,15 @@ public:
 	unsigned m_ageE;
 	DATA m_maxProb;
 
+	bool m_bSmile;
+
 	unsigned m_recL, m_recR;
 	unsigned m_recB, m_recT;
 
 private:
 	Vect2D<unsigned> m_dim;
 	unsigned char *m_pData;
+	unsigned char *m_pMsk;
 
 	unsigned char m_avg;
 	DATA m_sd;

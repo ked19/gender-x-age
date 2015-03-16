@@ -60,12 +60,6 @@
     <ClCompile Include="..\renderXman\TRIModel.cpp">
       <Filter>原始程式檔</Filter>
     </ClCompile>
-    <ClCompile Include="..\51x\texture.cpp">
-      <Filter>原始程式檔</Filter>
-    </ClCompile>
-    <ClCompile Include="..\renderXman\shader.cpp">
-      <Filter>原始程式檔</Filter>
-    </ClCompile>
     <ClCompile Include="myAlgo.cpp">
       <Filter>原始程式檔</Filter>
     </ClCompile>
@@ -116,17 +110,19 @@
     <ClInclude Include="..\renderXman\TRIModel.h">
       <Filter>標頭檔</Filter>
     </ClInclude>
-    <ClInclude Include="..\51x\texture.h">
-      <Filter>標頭檔</Filter>
-    </ClInclude>
-    <ClInclude Include="..\renderXman\shader.h">
-      <Filter>標頭檔</Filter>
-    </ClInclude>
     <ClInclude Include="myAlgo.h">
       <Filter>標頭檔</Filter>
     </ClInclude>
     <ClInclude Include="faceCount.h">
       <Filter>標頭檔</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="glfw3.lib">
+      <Filter>資源檔</Filter>
+    </Library>
+    <Library Include="glew32s.lib">
+      <Filter>資源檔</Filter>
+    </Library>
   </ItemGroup>
 </Project>

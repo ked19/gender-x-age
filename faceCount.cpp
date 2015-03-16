@@ -14,32 +14,41 @@ void SaveImg(unsigned char *pIn)
 	imgIO.Write("out.jpg", MyImg(mtxOut));
 }
 
-unsigned ComputeAvg(unsigned char *pD, unsigned size)
+unsigned ComputeAvg(unsigned char *pD, unsigned size, unsigned char *pMsk)
 {
 	unsigned sum = 0;
+	unsigned count = 0;
 	for (unsigned i = 0; i < size; i++) {
-		sum += pD[i];
+		if (pMsk[i] != 0) {
+			sum += pD[i];
+			count++;
+		} else {}
 	}
-	unsigned char avg = (unsigned char)(sum / size);
+	MyAssert(count > 0);
+	unsigned char avg = (unsigned char)(sum / count);
 	return avg;
 }
 
-DATA ComputeSD(unsigned char *pD, unsigned size, unsigned avg)
+DATA ComputeSD(unsigned char *pD, unsigned size, unsigned avg, unsigned char *pMsk)
 {
 	DATA sd = 0;
 	for (unsigned i = 0; i < size; i++) {
-		int dis = (int)pD[i] - avg;
-		sd += dis * dis;
+		if (pMsk[i] != 0) {
+			int dis = (int)pD[i] - avg;
+			sd += dis * dis;
+		} else {}
 	} 
 	return sqrt(sd);
 }
 
-FaceNode::FaceNode(unsigned iW, unsigned iH) 
+FaceNode::FaceNode(unsigned iW, unsigned iH, unsigned char *pMsk) 
 	: m_dim(iW, iH)
 	, m_unrefNum(0), m_dispNum(0)
 	, m_bMale(true)
 	, m_ageB(0), m_ageE(0), m_maxProb(0)
 	, m_recL(0), m_recR(0), m_recB(0), m_recT(0)
+	, m_pMsk(pMsk)
+	, m_bSmile(false)
 {
 	unsigned size = iW * iH;
 	m_pData = new unsigned char [size];
@@ -60,6 +69,7 @@ FaceNode::FaceNode(FaceNode &fnIn)
 	, m_ageB(fnIn.m_ageB), m_ageE(fnIn.m_ageE), m_maxProb(0)
 	, m_recL(fnIn.m_recL), m_recR(fnIn.m_recR)
 	, m_recB(fnIn.m_recB), m_recT(fnIn.m_recT)
+	, m_bSmile(true)
 {
 	unsigned size = m_dim.m_x * m_dim.m_y;
 	m_pData = new unsigned char [size];
@@ -74,8 +84,10 @@ FaceNode::~FaceNode()
 	delete [] m_pData;
 }
 
-void FaceNode::CopyFrom(unsigned char *pIn, unsigned iW, unsigned iH, unsigned iC)
+void FaceNode::CopyFrom(unsigned char *pIn, unsigned iW, unsigned iH, unsigned iC, unsigned char *pMsk)
 {
+	bool bDebug = false;
+
 	MyAssert(iW == m_dim.m_x &&
 			 iH == m_dim.m_y);
 	MyAssert(iC == 1 || iC == 3);
@@ -99,10 +111,13 @@ void FaceNode::CopyFrom(unsigned char *pIn, unsigned iW, unsigned iH, unsigned i
 	} else {
 		MyAssert(0);
 	}
-	m_avg = ComputeAvg(m_pData, size);
-	m_sd =  ComputeSD(m_pData, size, m_avg);
-	cout << "avg: " << (unsigned)m_avg << endl;
-	cout << "sd: " << m_sd << endl;
+	m_pMsk = pMsk;
+	m_avg = ComputeAvg(m_pData, size, m_pMsk);
+	m_sd =  ComputeSD(m_pData, size, m_avg, m_pMsk);
+	if (bDebug) {
+		cout << "avg: " << (unsigned)m_avg << endl;
+		cout << "sd: " << m_sd << endl;
+	} else {}
 	//SaveImg(m_pData);
 }
 
@@ -136,17 +151,21 @@ DATA FaceNode::Correlate(FaceNode &fnIn)
 	unsigned size = dimIn.m_x * dimIn.m_y;
 	unsigned avgIn = fnIn.m_avg;
 	for (unsigned i = 0; i < size; i++) {
-		int disNow = (int)m_pData[i] - m_avg;
-		int disIn  = (int)fnIn.m_pData[i] - avgIn;
-		corrSum += disNow * disIn;
+		if (m_pMsk[i] != 0) {
+			int disNow = (int)m_pData[i] - m_avg;
+			int disIn  = (int)fnIn.m_pData[i] - avgIn;
+			corrSum += disNow * disIn;
+		} else {}
 	}
 	//cout << corrSum << endl;
 	DATA corr = corrSum * invSd;
 	return corr;
 }
 
-void FaceNode::Update(FaceNode &fnIn) 
+void FaceNode::Update(FaceNode &fnIn, bool bNew) 
 {
+	float inScl = (bNew) ? 1.f : 0.1f;
+
 	Vect2D<unsigned> &dimIn = fnIn.m_dim;
 	MyAssert(dimIn.m_x == m_dim.m_x &&
 			 dimIn.m_y == m_dim.m_y);
@@ -156,16 +175,21 @@ void FaceNode::Update(FaceNode &fnIn)
 		//m_pData[i] = (m_pData[i] * m_dispNum + fnIn.m_pData[i]) / (m_dispNum + 1);
 		//m_pData[i] = (unsigned char)(m_pData[i] * 0.2f + fnIn.m_pData[i] * 0.8f); // / (m_dispNum + 1);
 		//m_pData[i] = (unsigned char)(m_pData[i] * 0.5f + fnIn.m_pData[i] * 0.5f); // / (m_dispNum + 1);
-		m_pData[i] = (unsigned char)(m_pData[i] * 0.1f + fnIn.m_pData[i] * 0.9f); // / (m_dispNum + 1);
+		
+		//m_pData[i] = (unsigned char)(m_pData[i] * 0.1f + fnIn.m_pData[i] * 0.9f); // / (m_dispNum + 1);
+		m_pData[i] = (unsigned char)(m_pData[i] * (1.f - inScl) + fnIn.m_pData[i] * inScl); // / (m_dispNum + 1);
 	}
+	m_pMsk = fnIn.m_pMsk;
 	m_dispNum++;
-	m_avg = ComputeAvg(m_pData, size);
-	m_sd =  ComputeSD(m_pData, size, m_avg);
+	m_avg = ComputeAvg(m_pData, size, m_pMsk);
+	m_sd =  ComputeSD(m_pData, size, m_avg, m_pMsk);
 
 	m_recL = fnIn.m_recL;
 	m_recR = fnIn.m_recR;
 	m_recB = fnIn.m_recB;
 	m_recT = fnIn.m_recT;
+
+	m_bSmile = fnIn.m_bSmile;
 
 	//m_bMale = fnIn.m_bMale;
 	//m_ageB = fnIn.m_ageB;
@@ -189,7 +213,7 @@ FaceCount::FaceCount()
 
 	m_apUnuse.clear();
 	for (unsigned a = 0; a < LIST_LEN; a++) {
-		FaceNode *pFn = new FaceNode(FACE_LEN, FACE_LEN);
+		FaceNode *pFn = new FaceNode(FACE_LEN, FACE_LEN, 0);
 		m_apUnuse.push_back(pFn);
 	}
 
@@ -229,8 +253,8 @@ FaceNode* FaceCount::GetNextFace()
 
 FaceNode* FaceCount::GetMatch(FaceNode &fnIn) 
 {
-	const DATA CORR_HIGH = 0.98F; //0.9F; //0.95F; 
-	const DATA CORR_LOW  = 0.9F; //0.7F; //0.9F; //0.5F; //0.6F; //0.8F;
+	const DATA CORR_HIGH = 0.9F; //0.9F; //0.95F; 
+	const DATA CORR_LOW  = 0.8F; //0.9F; //0.7F; //0.9F; //0.5F; //0.6F; //0.8F;
 
 	DATA coMax = -1e10;
 	list<FaceNode *>::iterator itMax;
@@ -315,6 +339,7 @@ bool FaceCount::IsUsed(unsigned id)
 unsigned FaceCount::Renew(FaceNode **ppFnIn)
 {
 	FaceNode *pFnMatch = GetMatch(**ppFnIn);
+	bool bMatch = (pFnMatch != 0) ? true : false;
 	if (bDebug) {
 		string bM = (pFnMatch) ? "y" : "n";
 		cout << "matched: " << bM << endl;
@@ -324,7 +349,7 @@ unsigned FaceCount::Renew(FaceNode **ppFnIn)
 	} else {}
 
 	static unsigned newId = 0;
-	if (pFnMatch == 0) {
+	if (!bMatch) {
 		if (m_apUnuse.size() > 0) {
 			pFnMatch = m_apUnuse[m_apUnuse.size() - 1];
 			m_apUnuse.pop_back();
@@ -353,7 +378,7 @@ unsigned FaceCount::Renew(FaceNode **ppFnIn)
 	//(*ppFnIn)->m_unrefNum = 0;
 	//(*ppFnIn)->m_id = pFnMatch->m_id;
 	//unsigned fId = pFnMatch->m_id;
-	pFnMatch->Update(**ppFnIn);
+	pFnMatch->Update(**ppFnIn, !bMatch);
 	pFnMatch->m_unrefNum = 0;
 	unsigned fId = pFnMatch->m_id;
 

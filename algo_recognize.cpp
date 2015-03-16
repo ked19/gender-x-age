@@ -19,18 +19,18 @@ FFeaLoc::~FFeaLoc()
 const string FaceFeature::FMARK_NAME = "landmarks.dat"; 
 const Vect2D<unsigned> FaceFeature::DIM_FACE(500, 500);
 
-FaceFeature::FaceFeature()
+FaceFeature::FaceFeature(string dir)
 {
 	m_arrGFace.set_size(DIM_FACE.m_x, DIM_FACE.m_y);
 
-	deserialize(FMARK_NAME) >> m_predictor;
+	deserialize(dir + FMARK_NAME) >> m_predictor;
 }
 
 FaceFeature::~FaceFeature()
 {}
 
 int FaceFeature::Detect(FFeaLoc &fFea, unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
-						unsigned fL, unsigned fR, unsigned fB, unsigned fT)
+						unsigned fL, unsigned fR, unsigned fB, unsigned fT, bool bRGB)
 {
 	MyAssert(fT <= fB);
 	MyAssert(fR >= fL);
@@ -60,9 +60,15 @@ int FaceFeature::Detect(FFeaLoc &fFea, unsigned char *pImg, unsigned imgW, unsig
 			for (unsigned x = fL; x <= fR; x++) {
 				unsigned loc = (yLoc + x) * imgC;
 				unsigned col = x - fL;
-				m_arrGFace[row][col] = (unsigned char)(pImg[loc + 0] * 0.30f +
-													   pImg[loc + 1] * 0.59f +
-													   pImg[loc + 2] * 0.11f);
+				if (bRGB) {
+					m_arrGFace[row][col] = (unsigned char)(pImg[loc + 0] * 0.30f +
+														   pImg[loc + 1] * 0.59f +
+														   pImg[loc + 2] * 0.11f);
+				} else {
+					m_arrGFace[row][col] = (unsigned char)(pImg[loc + 2] * 0.30f +
+														   pImg[loc + 1] * 0.59f +
+														   pImg[loc + 0] * 0.11f);
+				}
 			}
 		}
 	} else {
@@ -134,15 +140,39 @@ void HeadPose::Get3DLabel(Mtx &mtxL3D, string fN)
 	ifs.close();
 }
 
-HeadPose::HeadPose()
+//GLEWContext gc;
+
+/*
+GLEWContext*	g_pGLEWContext;
+
+static GLEWContext* glewGetContext()
+{
+    //static GLEWContext* myGLEWCONTEXT = NULL;
+
+    //myGLEWCONTEXT = (GLEWContext*)glfwGetCurrentContext();   
+
+    //return myGLEWCONTEXT;
+
+	return g_pGLEWContext;
+}
+*/
+
+HeadPose::HeadPose(string dir)
 	: m_pTriModel(0), m_pWin(0) //, m_txFace(DIM_FACE.m_x, DIM_FACE.m_y, DIM_FACE.m_z)//, m_shader(SH_VERT_N, SH_FRAG_N)
 	, m_mtxAMod(MAPPING_NUM, REGIST_NUM * 2), m_mtxBImg(1, REGIST_NUM * 2), m_mtxXTrans(1, MAPPING_NUM)
 	, m_pTxBuf(0), m_txId(0), m_dimFace(0, 0)
 	, m_bLock(false)
+	, m_bInitTx(false), m_txName(0)
+	, m_ffDetector(dir)
 {
+	bool bDebug = false;
+
 	//*******************************************
 	// gpu
 	//*******************************************
+	if (bDebug) {
+		std::cout << "h0" << endl;
+	} else {}
 	int e_fInit = glfwInit();
 	MyAssert(e_fInit == GL_TRUE);
 
@@ -160,6 +190,9 @@ HeadPose::HeadPose()
 	// texture
 	//*******************************************
 	// RGBA 2D texture, 24 bit depth texture, 
+	if (bDebug) {
+		cout << "h1" << endl;
+	} else {}
 	glGenTextures(1, &m_txColor);
 	glBindTexture(GL_TEXTURE_2D, m_txColor);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -169,9 +202,12 @@ HeadPose::HeadPose()
 	// 0 means reserve texture memory, but texels are undefined
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, DIM_FBO.m_x, DIM_FBO.m_y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
+	//cout << "h0" << endl;
 	glGenFramebuffers(1, &m_frameBuf);
+	//cout << "h1" << endl;
 	glBindFramebuffer(GL_FRAMEBUFFER, m_frameBuf);
 	// attach 2D texture to this FBO
+	//cout << "h2" << endl;
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_txColor, 0);
 
 	glGenRenderbuffers(1, &m_depthBuf);
@@ -187,9 +223,17 @@ HeadPose::HeadPose()
 	//*******************************************
 	// 3D model
 	//*******************************************
+	if (bDebug) {
+		cout << "h2" << endl;
+	} else {}
 	delete m_pTriModel;
 	m_pTriModel = new TRIModel;
-	m_pTriModel->loadFromFile("faith_all.tri");
+	string fN = dir + "faith_all.tri";
+	if (bDebug) {
+		cout << fN << endl;
+	} else {}
+	m_pTriModel->loadFromFile(fN.c_str());
+	//cout << "ab" << endl;
 
 	//*******************************************
 	// shader
@@ -200,7 +244,7 @@ HeadPose::HeadPose()
 	// matrix
 	//*******************************************
 	Mtx mtxL3D(3, WORLD_NUM);
-	Get3DLabel(mtxL3D, LABEL3D_N);
+	Get3DLabel(mtxL3D, dir + LABEL3D_N);
 
 	mtxOp.zero.Gen(m_mtxAMod);
 	for (unsigned lab = 0; lab < REGIST_NUM; lab++) {
@@ -211,6 +255,7 @@ HeadPose::HeadPose()
 		m_mtxAMod.CellRef(3 + 0, lab * 2 + 0) = 1.F;
 		m_mtxAMod.CellRef(3 + 4, lab * 2 + 1) = 1.F;
 	}
+
 }
 
 HeadPose::~HeadPose() 
@@ -334,14 +379,14 @@ void HeadPose::Render()
 	glUniform1f(m_shader.GetUniLoc("symetry"), sym), 
 	*/
 
-	static bool bInitTx = false;
-	static GLuint txName;
-	if (!bInitTx) {
-		bInitTx = true;
+	//static bool bInitTx = false;
+	//static GLuint txName;
+	if (!m_bInitTx) {
+		m_bInitTx = true;
 
 		glEnable(GL_TEXTURE_2D);
-		glGenTextures(1, &txName);
-		glBindTexture(GL_TEXTURE_2D, txName);
+		glGenTextures(1, &m_txName);
+		glBindTexture(GL_TEXTURE_2D, m_txName);
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //GL_NEAREST);
@@ -355,13 +400,13 @@ void HeadPose::Render()
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, DIM_FACE.m_x, DIM_FACE.m_y, 0, GL_RGB, GL_UNSIGNED_BYTE, m_pTxBuf);	
 	} else {}
 
-	glBindTexture(GL_TEXTURE_2D, txName);
+	glBindTexture(GL_TEXTURE_2D, m_txName);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, DIM_FACE.m_x, DIM_FACE.m_y, GL_RGB, GL_UNSIGNED_BYTE, m_pTxBuf);
 	//glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_dimFace.m_x, m_dimFace.m_y, GL_RGB, GL_UNSIGNED_BYTE, m_pTxBuf);	
 
 	glEnable(GL_TEXTURE_2D);
 		//glActiveTexture(m_txFace.GetTexID());
-	glBindTexture(GL_TEXTURE_2D, txName);
+	glBindTexture(GL_TEXTURE_2D, m_txName);
 	//glBindTexture(GL_TEXTURE_2D, m_pTxFace->GetTexID());
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -419,9 +464,77 @@ void HeadPose::Render()
 	//glUseProgram(0);
 }
 
+int HeadPose::GetTrans(Mtx &mtxX, 
+					   unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
+					   unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, 
+					   bool bRGB, bool bDebug)
+{
+	//*******************************************
+	// mapping coefficient
+	//*******************************************
+	float fScl = 1.f; // 1.7F;
+
+	int bFD = m_ffDetector.Detect(m_fFea, pImg, imgW, imgH, imgC, fL_in, fR_in, fB_in, fT_in, bRGB);
+	if (bFD != 0) {
+		return -1;
+	} else {}
+
+	for (unsigned lab = 0; lab < REGIST_NUM; lab++) {
+		m_mtxBImg.CellRef(0, lab * 2 + 0) = m_fFea.m_x[m_aIdxImg[lab]];
+		m_mtxBImg.CellRef(0, lab * 2 + 1) = m_fFea.m_y[m_aIdxImg[lab]];
+	}
+	//mtxOp.out << m_mtxAMod; 
+	//cout << endl << endl;
+	//mtxOp.out << m_mtxBImg ;
+	//cout << endl << endl;
+	//getchar();
+
+	Vect2D<unsigned> dimA = m_mtxAMod.GetDim();
+	Mtx mtxAC(dimA.m_x / 2, 1);
+	mtxOp.zero.Gen(mtxAC);
+	for (unsigned y = 0; y < dimA.m_y; y += 2) {
+		for (unsigned x = 0; x < dimA.m_x / 2 - 1; x++) {
+			mtxAC.CellRef(x, 0) += m_mtxAMod.CellVal(x, y);
+		}
+	}
+	for (unsigned x = 0; x < dimA.m_x / 2; x++) {
+		mtxAC.CellRef(x, 0) /= (dimA.m_y / 2);
+	}
+
+	Mtx mtxA2(dimA.m_x, dimA.m_y);
+	mtxOp.zero.Gen(mtxA2);
+	for (unsigned y = 0; y < dimA.m_y / 2; y++) {
+		for (unsigned x = 0; x < dimA.m_x / 2; x++) {
+			mtxA2.CellRef(x, y * 2) = m_mtxAMod.CellVal(x, y * 2) - mtxAC.CellVal(x, 0);
+			mtxA2.CellRef(x + dimA.m_x / 2, y * 2 + 1) = mtxA2.CellVal(x, y * 2);
+		}
+	}
+	//mtxOp.out << mtxA2; 
+	//cout << endl << endl;
+	//mtxOp.out << m_mtxBImg ;
+	//cout << endl << endl;
+	//getchar();
+
+	static Mtx mtxAA(MAPPING_NUM, MAPPING_NUM);
+	static Mtx mtxAB(1, MAPPING_NUM);
+	static unsigned aIdx[MAPPING_NUM];
+	//mtxOp.leastSquare.Gen(m_mtxXTrans, m_mtxAMod, m_mtxBImg, mtxAA, mtxAB, aIdx);
+	mtxOp.leastSquare.Gen(m_mtxXTrans, mtxA2, m_mtxBImg, mtxAA, mtxAB, aIdx);
+	if (bDebug) {
+		mtxOp.out << m_mtxXTrans;
+		cout << endl << endl;
+	} else {}
+
+	Vect2D<unsigned> dimOut = mtxX.GetDim();
+	MyAssert(dimOut.m_x == 1 && dimOut.m_y == MAPPING_NUM);
+	mtxX.CopyFrom(m_mtxXTrans);
+	return 0;
+}
+
 int HeadPose::Normalize(unsigned char *pOut, unsigned outC,
 						unsigned char *pImg, unsigned imgW, unsigned imgH, unsigned imgC,
-						unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, bool bDebug)
+						unsigned fL_in, unsigned fR_in, unsigned fB_in, unsigned fT_in, 
+						bool bRGB, bool bDebug)
 {
 	m_bLock = true;
 
@@ -430,7 +543,7 @@ int HeadPose::Normalize(unsigned char *pOut, unsigned outC,
 	//*******************************************
 	float fScl = 1.7f;
 
-	int bFD = m_ffDetector.Detect(m_fFea, pImg, imgW, imgH, imgC, fL_in, fR_in, fB_in, fT_in);
+	int bFD = m_ffDetector.Detect(m_fFea, pImg, imgW, imgH, imgC, fL_in, fR_in, fB_in, fT_in, bRGB);
 	if (bFD != 0) {
 		return -1;
 	} else {}
@@ -598,8 +711,15 @@ int HeadPose::Normalize(unsigned char *pOut, unsigned outC,
 			 unsigned xx = x + fL;
 			 unsigned locImg = (yImgLoc + xx) * imgC;
 			 unsigned locBuf = (yBufLoc + x) * imgC;
-			 for (unsigned c = 0; c < imgC; c++) {
-				m_pTxBuf[locBuf + c] = pImg[locImg + c];
+			 if (bRGB) {
+				for (unsigned c = 0; c < imgC; c++) {
+					m_pTxBuf[locBuf + c] = pImg[locImg + c];
+				}
+			 } else {
+				 //cout << "bgr" << endl;
+			 	for (unsigned c = 0; c < imgC; c++) {
+					m_pTxBuf[locBuf + imgC - c] = pImg[locImg + c];
+				}
 			 }
 		 }
 	 }
@@ -673,6 +793,51 @@ int HeadPose::Normalize(unsigned char *pOut, unsigned outC,
 	*/
 
 	m_bLock = false;
+	return 0;
+}
+
+int HeadPose::GetFFLoc(FFeaLoc &ffLoc)
+{
+	for (unsigned ff = 0; ff < ffLoc.FEA_NUM; ff++) {
+		ffLoc.m_x[ff] = m_fFea.m_x[ff];
+		ffLoc.m_y[ff] = m_fFea.m_y[ff];
+	}
+	return 0;
+}
+
+//*************************************************************************************************
+// Smile
+//*************************************************************************************************
+Smile::Smile()
+{}
+
+Smile::~Smile()
+{}
+
+int Smile::Detect(bool &bS, FFeaLoc &ffLoc)
+{
+	bool bDebug = false;
+
+	unsigned mouthXL = ffLoc.m_x[48];		unsigned mouthYL = ffLoc.m_y[48];
+	unsigned mouthXR = ffLoc.m_x[54];		unsigned mouthYR = ffLoc.m_y[54];
+	DATA mXDiff = (DATA)mouthXL - mouthXR;
+	DATA mYDiff = (DATA)mouthYL - mouthYR;
+	DATA mouthDiff = //fabs(mXDiff); 
+					 sqrt(mXDiff * mXDiff + mYDiff * mYDiff);
+
+	unsigned eyeXL = ffLoc.m_x[36];			unsigned eyeYL = ffLoc.m_y[36];
+	unsigned eyeXR = ffLoc.m_x[45];			unsigned eyeYR = ffLoc.m_y[45];
+	DATA eXDiff = (DATA)eyeXL - eyeXR;
+	DATA eYDiff = (DATA)eyeYL - eyeYR;
+	DATA eyeDiff = //fabs(eXDiff); 
+				   sqrt(eXDiff * eXDiff + eYDiff * eYDiff);
+
+	if (bDebug) {
+		cout << "**" << mouthDiff << " " << eyeDiff << " " << mouthDiff / eyeDiff << endl;
+		} else {}
+	bS = ((mouthDiff / eyeDiff) > 0.65F) //0.68F) 
+		? true : false;
+
 	return 0;
 }
 

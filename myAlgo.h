@@ -20,12 +20,14 @@ public:
 	void Detect(std::vector<rectangle> &aRect, 
 				unsigned char *pBuf, unsigned bufW, unsigned bufH, unsigned bufC, 
 				unsigned imgW, unsigned imgH, 
+				bool bRGB = true,
 				bool bDouble = false);
 
 	void Detect(std::vector<rectangle> &aRect, 
 				unsigned char *pGray, unsigned char *pRgb, 
 				Mtx &mtxSkin, Mtx &mtxLab, unsigned scl,
 				unsigned imgW, unsigned imgH, 
+				bool bRGB = true,
 				bool bDouble = false);
 
 	void DetectLocal(std::vector<rectangle> &aRect, 

@@ -491,6 +491,9 @@ void MyGlWindow::draw()
 	glMatrixMode(GL_MODELVIEW);
 	gluOrtho2D(0, txW - 1, 0, txH - 1);
 
+	//*******************************************
+	// draw buffer
+	//*******************************************
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, txName);
@@ -503,6 +506,9 @@ void MyGlWindow::draw()
 	glDisable(GL_TEXTURE_2D);
 
 	/*
+	//*******************************************
+	// draw FFeaLoc
+	//*******************************************
 	//cout << arrFace.size() << endl;
 	glColor4f(0, 1.f, 0, 1.f);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -517,6 +523,10 @@ void MyGlWindow::draw()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	*/
 
+	//*******************************************
+	// draw bbox
+	//*******************************************
+	glDisable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glBegin(GL_QUADS);
 	FaceNode *pFn = fcount.GetBeginFace();
@@ -542,6 +552,9 @@ void MyGlWindow::draw()
 	glEnd();
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+	//*******************************************
+	// draw id, age, smile
+	//*******************************************
 	glDisable(GL_DEPTH_TEST);
 	glLineWidth(2.f);
 	FaceNode *pFn2 = fcount.GetBeginFace();
@@ -555,53 +568,87 @@ void MyGlWindow::draw()
 		ss.str("");			ss.clear();		ss << pFn2->m_ageB;		ss >> abS;
 		ss.str("");			ss.clear();		ss << pFn2->m_ageE;		ss >> aeS;
 
+		string smileS = (pFn2->m_bSmile) ? "Yes" : "No";
+		string genS = (pFn2->m_bMale) ? "Male" : "Female";
+
 		glPushMatrix();
 		glColor3f(1.f, 1.f, 1.f);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glBegin(GL_QUADS);
-			glVertex2f(pFn2->m_recL,			 txH - 1 - pFn2->m_recB - 50.f);
-			glVertex2f(pFn2->m_recL + 150.f, txH - 1 - pFn2->m_recB - 50.f);
-			glVertex2f(pFn2->m_recL + 150.f, txH - 1 - pFn2->m_recB);
+			glVertex2f(pFn2->m_recL,			 txH - 1 - pFn2->m_recB - 100.f);
+			glVertex2f(pFn2->m_recL + 190.f, txH - 1 - pFn2->m_recB - 100.f);
+			glVertex2f(pFn2->m_recL + 190.f, txH - 1 - pFn2->m_recB);
 			glVertex2f(pFn2->m_recL,			 txH - 1 - pFn2->m_recB);
 		glEnd();
 		glPopMatrix();
 
+		//glLineWidth(1.f);
+		glColor3f(0.1f, 0.1f, 0.1f);
+
+		glPushMatrix();
+		glTranslatef(pFn2->m_recL, txH - 1 - pFn2->m_recB - 25.f, 0);
+		glScalef(0.15f, 0.15f, 0.15f);	
+		idS = "ID -> " + idS;
+		for (unsigned s = 0; s < idS.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, idS.c_str()[s]);
+		}
+
+		glPopMatrix();
 		glPushMatrix();
 		glTranslatef(pFn2->m_recL, txH - 1 - pFn2->m_recB - 50.f, 0);
-		glScalef(0.25f, 0.25f, 0.25f);
+		glScalef(0.15f, 0.15f, 0.15f);
+		string s2S = ":) -> "; 
+		for (unsigned s = 0; s < s2S.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, s2S.c_str()[s]);
+		}
+		if (pFn2->m_bSmile) {
+			glColor3f(1.f, 0, 0);
+		} else {
+			glColor3f(0.1f, 0.1f, 0.1f);
+		}
+		for (unsigned s = 0; s < smileS.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, smileS.c_str()[s]);
+		}
+		glColor3f(0.1f, 0.1f, 0.1f);
 
-		glColor3f(0.8f, 0.4f, 0);
-		for (unsigned s = 0; s < idS.size(); s++) {
-			glutStrokeCharacter(GLUT_STROKE_ROMAN, idS.c_str()[s]);
-		}
-		glutStrokeCharacter(GLUT_STROKE_ROMAN, ':');
-
-		glColor3f(0.04f, 0.15f, 0.89f);
-		for (unsigned s = 0; s < abS.size(); s++) {
-			glutStrokeCharacter(GLUT_STROKE_ROMAN, abS.c_str()[s]);
-		}
-		glutStrokeCharacter(GLUT_STROKE_ROMAN, '-');
-		for (unsigned s = 0; s < aeS.size(); s++) {
-			glutStrokeCharacter(GLUT_STROKE_ROMAN, aeS.c_str()[s]);
-		}
 		glPopMatrix();
+		glPushMatrix();
+		glTranslatef(pFn2->m_recL, txH - 1 - pFn2->m_recB - 75.f, 0);
+		glScalef(0.15f, 0.15f, 0.15f);
+		string g2S = "Gen-> ";
+		for (unsigned s = 0; s < g2S.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, g2S.c_str()[s]);
+		}
+		if (pFn2->m_bMale) {
+			glColor3f(0, 1.f, 0);
+		} else {
+			glColor3f(1.f, 0, 0);
+		}
+		for (unsigned s = 0; s < genS.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, genS.c_str()[s]);
+		}
+		glColor3f(0.1f, 0.1f, 0.1f);
+
+		glPopMatrix();
+		glPushMatrix();
+		glTranslatef(pFn2->m_recL, txH - 1 - pFn2->m_recB - 100.f, 0);
+		glScalef(0.15f, 0.15f, 0.15f);
+		string ageS = "Age-> " + abS + "-" + aeS;
+		for (unsigned s = 0; s < ageS.size(); s++) {
+			glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, ageS.c_str()[s]);
+		}		
+
+		glPopMatrix();
+		//glLineWidth(2.f);
 
 		pFn2 = fcount.GetNextFace();
 	}
 	glEnable(GL_DEPTH_TEST);
 
 	/*
-	glColor4f(1.f, 0, 0, 1.f);
-	glPointSize(3.0);
-	glBegin(GL_POINTS);
-	for (unsigned fa = 0; fa < arrFFea.size(); fa++) {
-		for (unsigned fea = 0; fea < 68; fea++) {
-			glVertex2f(arrFFea[fa].m_x[fea], arrFFea[fa].m_y[fea]);
-		}
-	}
-	glEnd();
-	*/
-
+	//*******************************************
+	// draw normalization
+	//*******************************************
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 	FaceNode *pFn3 = fcount.GetBeginFace();
@@ -630,6 +677,7 @@ void MyGlWindow::draw()
 	}
 	glDisable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
+	*/
 
 	glFlush();
 }
